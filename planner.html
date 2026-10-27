@@ -1,0 +1,148 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>LMU Course Planner</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+<style>
+:root{--bg:#f6f7f9;--panel:#fff;--ink:#1c2430;--muted:#5b6676;--line:#d9dee6;--accent:#2a5d8f;--accent-soft:#e3edf7;
+--ok:#2f7a4f;--ok-soft:#e2f2e8;--warn:#9a6411;--warn-soft:#fbefd9;--bad:#b03a32;--bad-soft:#fbe5e3;
+--sans:"IBM Plex Sans",system-ui,sans-serif;--mono:"IBM Plex Mono",ui-monospace,monospace}
+@media (prefers-color-scheme:dark){:root{--bg:#12161c;--panel:#1a2029;--ink:#e4e8ee;--muted:#9aa5b4;--line:#2e3744;--accent:#7fb0e0;--accent-soft:#1f3044;
+--ok:#7fcf9c;--ok-soft:#1c3326;--warn:#e8b866;--warn-soft:#3a2d16;--bad:#f08c84;--bad-soft:#3d1f1d;color-scheme:dark}}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--sans);font-size:15px;line-height:1.5}
+.wrap{max-width:1100px;margin:0 auto;padding:24px 16px 48px;display:flex;flex-direction:column;gap:20px}
+h1{font-size:24px;font-weight:600;margin:0}.sub{color:var(--muted);margin:2px 0 0}
+.switch{display:flex;gap:8px;flex-wrap:wrap}
+.switch button{font:inherit;padding:10px 16px;border-radius:8px;border:1px solid var(--line);background:var(--panel);color:var(--ink);cursor:pointer;text-align:left}
+.switch button[aria-pressed="true"]{border-color:var(--accent);background:var(--accent-soft)}
+.switch small{display:block;color:var(--muted);font-size:12px}
+.mode{font-size:13px;color:var(--muted);border-left:3px solid var(--accent);padding:4px 0 4px 10px}
+.grid{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.25fr);gap:20px;align-items:start}
+@media (max-width:820px){.grid{grid-template-columns:1fr}}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:16px;min-width:0}
+.panel h2{font-size:15px;font-weight:600;margin:0 0 12px}
+.list{display:flex;flex-direction:column;gap:10px}
+.course{border:1px solid var(--line);border-radius:8px;padding:10px 12px;display:grid;grid-template-columns:auto 1fr;gap:4px 10px}
+.course input{margin-top:4px;width:16px;height:16px;accent-color:var(--accent)}
+.name{font-weight:500}.meta{font-family:var(--mono);font-size:12.5px;color:var(--muted)}
+.chips{display:flex;gap:6px;flex-wrap:wrap;margin-top:4px;align-items:center}
+.chip{font-size:12px;padding:2px 8px;border-radius:999px;font-weight:500}
+.chip.ok{background:var(--ok-soft);color:var(--ok)}.chip.warn{background:var(--warn-soft);color:var(--warn)}.chip.bad{background:var(--bad-soft);color:var(--bad)}
+.src{font-size:12px;color:var(--accent)}
+.week{display:grid;grid-template-columns:44px repeat(5,minmax(0,1fr));font-size:12px;min-width:420px}
+.hd{text-align:center;color:var(--muted);padding-bottom:6px;font-weight:500}
+.hours div{height:30px;font-family:var(--mono);color:var(--muted);font-size:11px;transform:translateY(-7px)}
+.day{position:relative;border-left:1px solid var(--line);background:repeating-linear-gradient(to bottom,transparent 0 29px,var(--line) 29px 30px)}
+.blk{position:absolute;left:3px;right:3px;border-radius:5px;padding:3px 5px;background:var(--accent-soft);border-left:3px solid var(--accent);overflow:hidden;font-size:11.5px;line-height:1.25}
+.blk.conflict{background:var(--bad-soft);border-left-color:var(--bad)}.blk.flag{border-left-color:var(--warn)}
+.foot{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-top:14px}
+.btn{font:inherit;font-weight:500;padding:9px 16px;border-radius:8px;border:1px solid var(--accent);background:var(--accent);color:var(--panel);cursor:pointer}
+.btn.ghost{background:transparent;color:var(--accent)}
+.note,.ex{font-size:13px;color:var(--muted)}
+.reveal{width:100%;border:1px dashed var(--bad);border-radius:8px;padding:10px 12px;background:var(--bad-soft);font-size:13.5px}
+</style>
+<script src="courses.js" onerror="void 0"></script>
+</head><body>
+<div class="wrap">
+ <header><h1>LMU Course Planner</h1><p class="sub" id="srcnote"></p><p class="sub" style="font-size:13px">Class prototype, not an official LMU tool. Check everything on LSF before you register.</p></header>
+ <div class="switch">
+  <button id="b1" aria-pressed="true" onclick="setV(1)">Version 1 · AI decides<small>Trading: AI picks, you approve</small></button>
+  <button id="b2" aria-pressed="false" onclick="setV(2)">Version 2 · You decide<small>Sharing: you pick, AI checks</small></button>
+ </div>
+ <p class="mode" id="mode"></p>
+ <div class="grid">
+  <section class="panel"><h2 id="listTitle"></h2><div class="list" id="list"></div><div class="foot" id="foot"></div></section>
+  <section class="panel"><h2>Your week</h2><div style="overflow-x:auto"><div class="week" id="week"></div></div><p class="ex" id="summary"></p></section>
+ </div>
+</div>
+<script>
+const DAYS=["Mon","Tue","Wed","Thu","Fri"],H0=8,H1=20,PX=30;
+const S=(d,s,e,room)=>({d,s,e,room,ct:true});
+const SAMPLE=[
+ {id:"hf",name:"Human Factors in AI",type:"Lecture",sessions:[S(0,14,18,"Geschw.-Scholl-Pl. 1, B 106")]},
+ {id:"pc",name:"Parallel Computing",type:"Lecture",sessions:[S(1,10,12,"Oettingenstr. 67, 101")]},
+ {id:"ml",name:"Machine Learning",type:"Lecture",sessions:[S(2,12,14,"Hauptgebäude, A 240")]},
+ {id:"cv",name:"Computer Vision",type:"Lecture",sessions:[S(2,13,15,"Amalienstr. 73A, 112")]},
+ {id:"hci",name:"HCI Research Seminar",type:"Seminar",sessions:[S(3,14,16,"Frauenlobstr. 7a, 357")],st:"exchange"},
+ {id:"de",name:"German A2",type:"Language course",sessions:[S(3,16,18,"Schellingstr. 3, S 002")],old:"Schellingstr. 3, 005",st:"changed"},
+ {id:"iv",name:"Information Visualization",type:"Exercise",sessions:[S(4,10,12,null)]}];
+const REAL=Array.isArray(window.COURSES)&&window.COURSES.length>0;
+const C=REAL?window.COURSES:SAMPLE;
+const LABEL={exchange:"Exchange access unclear",changed:"Room changed on LSF",noroom:"No room in source, check LSF",odd:"Room text looks wrong, check LSF",ok:"Matches source"};
+function status(c){
+ if(c.st==="exchange"||c.st==="changed")return c.st;
+ if(c.sessions.some(x=>!x.room))return "noroom";
+ if(c.sessions.some(x=>x.room.length>45||/\d{2}\.\d{2}\.\d{4}|Bei |take place/.test(x.room)))return "odd";
+ return "ok";}
+const t=x=>`${String(Math.floor(x)).padStart(2,"0")}:${String(Math.round((x%1)*60)).padStart(2,"0")}`;
+const fmtS=x=>`${DAYS[x.d]} ${t(x.s)}–${t(x.e)}${x.ct?" c.t.":""}`;
+const ov=(a,b)=>a.sessions.some(x=>b.sessions.some(y=>x.d===y.d&&x.s<y.e&&y.s<x.e));
+const esc=s=>String(s??"").replace(/[&<>"]/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[m]));
+const TYPE_EN={"Vorlesung":"Lecture","Übung":"Exercise","Seminar":"Seminar","Praktikum":"Lab course","Oberseminar":"Research seminar","Tutorium":"Tutorial","Kolloquium":"Colloquium","Proseminar":"Seminar","Hauptseminar":"Seminar"};
+C.forEach(c=>{let ty=c.type;if(!ty){ty=/Übung/.test(c.name)?"Übung":/Seminar/.test(c.name)?"Seminar":/Praktikum/.test(c.name)?"Praktikum":"Vorlesung";}c.typeEn=TYPE_EN[ty]||ty||"Lecture";c.levels=c.levels||[];});
+const F={dept:"",type:"",level:"",lang:""};
+const uniq=a=>[...new Set(a.filter(Boolean))].sort();
+const OPTS={dept:uniq(C.map(c=>c.dept)),type:uniq(C.map(c=>c.typeEn)),level:uniq(C.flatMap(c=>c.levels)),lang:uniq(C.map(c=>c.lang))};
+const FL={dept:"All departments",type:"All types",level:"Bachelor + Master",lang:"Any language"};
+function filterBar(){return `<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:6px;margin-top:8px;font-weight:400">`+
+ Object.keys(F).filter(k=>OPTS[k].length).map(k=>`<select id="f-${k}" aria-label="${FL[k]}" onchange="F.${k}=this.value;renderList()" style="font:inherit;font-size:13px;padding:6px;border:1px solid var(--line);border-radius:6px;background:var(--bg);color:var(--ink)"><option value="">${FL[k]}</option>${OPTS[k].map(o=>`<option ${F[k]===o?"selected":""}>${esc(o)}</option>`).join("")}</select>`).join("")+`</div>${OPTS.lang.length?`<div class="ex" style="font-weight:400;margin-top:4px">Language is guessed from the course title. Check on LSF.</div>`:""}`;}
+const byId=Object.fromEntries(C.map(c=>[c.id,c]));
+let v=1,approved=false,revealed=false,query="",goal="Human Factor, Machine Learning, Parallel";
+let picked=new Set(REAL?(byId["16639"]?["16639"]:[]):["hf","pc"]);
+srcnote.textContent=REAL?`Real data: ${C.length} courses from the LMU faculty 16 course list, winter 2026/27 (official PDF).`:"Sample data. Run parse_pdf.py to load real courses.";
+function aiPick(){
+ if(!REAL)return ["hf","pc","ml","hci","de"].map(i=>byId[i]);
+ const kws=goal.split(",").map(s=>s.trim().toLowerCase()).filter(Boolean);
+ const cands=C.filter(c=>kws.some(k=>c.name.toLowerCase().includes(k))).sort((a,b)=>(b.type==="Vorlesung")-(a.type==="Vorlesung"));
+ const out=[];for(const c of cands){if(out.length>=5)break;if(!out.some(o=>ov(o,c)))out.push(c);}return out;}
+function setV(n){v=n;approved=false;revealed=false;b1.setAttribute("aria-pressed",n===1);b2.setAttribute("aria-pressed",n===2);render();}
+function tog(id){picked.has(id)?picked.delete(id):picked.add(id);render();}
+function sessLine(c,showOld){return c.sessions.map(x=>`${fmtS(x)} · ${esc(showOld&&c.old?c.old:(x.room||"—"))}`).join("<br>");}
+function render(){
+ let shown;
+ if(v===1){
+  mode.textContent="The AI reads the course list and builds a timetable for you. You only approve it. You see the result, not the source.";
+  listTitle.innerHTML=REAL?`AI's proposed timetable <div style="margin-top:8px;font-weight:400"><label class="note" for="goal">What are you interested in?</label><input id="goal" value="${esc(goal)}" style="width:100%;font:inherit;padding:6px 8px;margin-top:4px;border:1px solid var(--line);border-radius:6px;background:var(--bg);color:var(--ink)" onchange="goal=this.value;approved=false;revealed=false;render()"></div>`:"AI's proposed timetable";
+  shown=aiPick();
+  list.innerHTML=shown.map(c=>`<div class="course" style="grid-template-columns:1fr"><div><div class="name">${esc(c.name)}</div><div class="meta">${sessLine(c,true)}</div></div></div>`).join("")||`<p class="note">No matching courses.</p>`;
+  const issues=shown.filter(c=>status(c)!=="ok");
+  foot.innerHTML=approved?`<span class="note">Timetable approved.</span><button class="btn ghost" onclick="revealed=!revealed;render()">${revealed?"Hide":"Show"} what you couldn't see</button>`
+   :`<button class="btn" onclick="approved=true;render()">Approve timetable</button><span class="note">No sources shown.</span>`;
+  if(approved&&revealed)foot.innerHTML+=`<div class="reveal"><strong>${issues.length?"Problems hidden from you:":"Nothing flagged this time, but you had no way to check."}</strong><ul>${issues.map(c=>`<li>${esc(c.name)}: ${LABEL[status(c)]}</li>`).join("")}</ul></div>`;
+ }else{
+  mode.textContent="You choose the courses. The AI checks clashes and flags anything it is unsure about.";
+  listTitle.innerHTML=`Pick your courses <input id="q" placeholder="Search ${C.length} courses…" value="${esc(query)}" style="display:block;width:100%;font:inherit;font-weight:400;padding:6px 8px;margin-top:8px;border:1px solid var(--line);border-radius:6px;background:var(--bg);color:var(--ink)" oninput="query=this.value;renderList()">${REAL?filterBar():""}`;
+  renderList();
+  shown=C.filter(c=>picked.has(c.id));
+  const flags=shown.filter(c=>status(c)!=="ok").length,clashes=shown.some(a=>shown.some(b=>a!==b&&ov(a,b)));
+  foot.innerHTML=`<span class="note">${shown.length} picked · ${clashes?"has a time clash":"no time clashes"} · ${flags} to check</span>`;
+ }
+ drawWeek(shown);
+}
+function renderList(){
+ const q=query.trim().toLowerCase();
+ const sel=C.filter(c=>picked.has(c.id));
+ const active=q||Object.values(F).some(Boolean);
+ const all=active?C.filter(c=>!picked.has(c.id)&&(!q||(c.name+" "+(c.lecturer||"")+" "+c.id).toLowerCase().includes(q))&&(!F.dept||c.dept===F.dept)&&(!F.type||c.typeEn===F.type)&&(!F.level||c.levels.includes(F.level))&&(!F.lang||c.lang===F.lang)):[];
+ const res=all.slice(0,30);
+ const card=c=>{const st=status(c),k=st==="ok"?"ok":"warn";
+  const clash=sel.filter(o=>o.id!==c.id&&ov(c,o));
+  return `<label class="course"><input type="checkbox" ${picked.has(c.id)?"checked":""} onchange="tog('${c.id}')"><div><div class="name">${esc(c.name)} <span class="meta">${"· "+esc(c.typeEn||c.type)}${REAL?" · "+c.id+(c.lang?" · "+c.lang:""):""}</span></div>
+  <div class="meta">${sessLine(c,false)}</div><div class="chips"><span class="chip ${k}">${LABEL[st]}</span>
+  ${clash.length?`<span class="chip bad">Clashes with ${clash.map(o=>esc(o.name)).join(", ")}</span>`:""}
+  <a class="src" href="https://www.lsf.lmu.de" target="_blank" rel="noopener">Check on LSF ↗</a></div></div></label>`;};
+ list.innerHTML=(sel.length?`<div class="note">Picked</div>`+sel.map(card).join(""):"")+(active?`<div class="note">${all.length?`Showing ${res.length} of ${all.length} courses${all.length>30?" · narrow the filters to see more":""}`:"No results"}</div>`+res.map(card).join(""):`<div class="note">Search or pick a filter, e.g. Computer Science + Lecture + English.</div>`);
+}
+function drawWeek(shown){
+ let h=`<div></div>`+DAYS.map(d=>`<div class="hd">${d}</div>`).join("")+`<div class="hours">`;
+ for(let i=H0;i<H1;i++)h+=`<div>${String(i).padStart(2,"0")}:00</div>`;h+=`</div>`;
+ const blocks=shown.flatMap(c=>c.sessions.map(x=>({c,x})));
+ DAYS.forEach((_,d)=>{const td=blocks.filter(b=>b.x.d===d);h+=`<div class="day" style="height:${(H1-H0)*PX}px">`;
+  td.forEach((b,i)=>{const cl=td.some(o=>o!==b&&o.x.s<b.x.e&&b.x.s<o.x.e),fl=v===2&&status(b.c)!=="ok";
+   const half=cl?(i%2?"left:50%;right:3px;":"left:3px;right:50%;"):"";
+   h+=`<div class="blk ${cl?"conflict":""} ${fl?"flag":""}" style="top:${(Math.max(b.x.s,H0)-H0)*PX+1}px;height:${(Math.min(b.x.e,H1)-Math.max(b.x.s,H0))*PX-3}px;${half}" title="${esc(b.c.name)}">${esc(b.c.name)}</div>`});
+  h+=`</div>`});
+ week.innerHTML=h;
+ summary.textContent=v===1?"Blue = AI choice. Nothing is flagged.":"Red = time clash. Orange edge = information to check.";
+}
+render();
+</script></body></html>

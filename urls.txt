@@ -1,0 +1,1 @@
+# Paste one LSF course page URL per line (max 5)
